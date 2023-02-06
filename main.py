@@ -6,7 +6,7 @@ from aiogram.dispatcher.filters import Command
 from docx import Document
 from Messages import Message_to_user
 
-TOKEN = *TOKEN*
+TOKEN = TOKEN
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot=bot)
 ingame = False  #
