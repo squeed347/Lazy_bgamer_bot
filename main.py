@@ -1,101 +1,89 @@
-import time
-import logging
+# -*- coding: utf8 -*-
+
 import os
 from aiogram import Bot, Dispatcher, executor, types
+from aiogram.dispatcher.filters import Command
 from docx import Document
+from Messages import Message_to_user
 
-TOKEN = "5615823301:AAEnhDpnU8T-07FkRMmnMZNNEzKYHSVrBYQ"
-logging.basicConfig(level=logging.INFO, filename="logging.log", filemode="w")
+TOKEN = *TOKEN*
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot=bot)
 ingame = False  #
 document_with_rules = Document()
 game_database = []
+msg = Message_to_user()
 
-
-@dp.message_handler(commands=['start'])
-async def start_handler(message: types.Message):
-    user_id = message.from_user.id
-    user_full_name = message.from_user.full_name
-    logging.info(f'{user_id=} {user_full_name=} {time.asctime()}')
+@dp.message_handler(commands=['start', 'allgames', 'help', 'addgame', 'sleep'])
+async def commands_handler(message: types.Message, command: Command.CommandObj):
     global ingame
     global game_database
-    game_database = get_database()
-    ingame = False
+    global msg
 
-    await message.reply(f"Привет, {message.from_user.first_name}!\nДобро пожаловать к Ленивому настольщику! "
-                        f"\nЯ готов помочь тебе быстро пробежаться по правилам известных мне настольных игр.\n"
-                        f"Используй меню слева при возникновении вопросов. Удачной партии, дружище!", reply_markup = types.ReplyKeyboardRemove())
-
-
-@dp.message_handler(commands=['allgames']) # обработчик обычных сообщений
-async def all_games_handler(message: types.Message):
-    global game_database
-    await message.answer(f"Я знаю целых {len(game_database)} игр(ы):")
-    for file in game_database:
-        game_name = str(file)
-        keyboard = types.InlineKeyboardMarkup()
-        keyboard.add(types.InlineKeyboardButton(text=game_name, callback_data=game_name))
-        await message.answer("Нажмите для выбора игры", reply_markup=keyboard)
-
-
-@dp.message_handler(commands=['help'])
-async def start_handler(message: types.Message):
-    await message.answer("Чтобы выбрать игру, введи её название, либо найди её в списке всех известных мне игр.\n"
-                         "При выборе игры, для навигации по правилам, я покажу тебе нужные их части.\n"
-                         "Чтобы выбрать другую игру - нажми кнопку start в меню, а затем скажи во что хочешь сыграть.")
+    if command.command =='start':
+        game_database = get_database()
+        ingame = False
+        await message.reply(msg.greeting_response(message.from_user.first_name),
+                            reply_markup=types.ReplyKeyboardRemove())
+    elif command.command == 'allgames':
+        for file in game_database:
+            game_name = str(file)
+            keyboard = types.InlineKeyboardMarkup()
+            keyboard.add(types.InlineKeyboardButton(text=game_name, callback_data=game_name))
+        await message.answer("РќР°Р¶РјРёС‚Рµ РґР»СЏ РІС‹Р±РѕСЂР° РёРіСЂС‹", reply_markup=keyboard)
+    elif command.command == 'help':
+        await message.answer(msg.help_response())
+    elif command.command == 'addgame':
+        await message.answer(msg.addgame_response())
+    elif command.command == 'sleep' and message.from_user.id == 966427877:
+        await message.answer(f'РўРІРѕР№ ID={message.from_user.id}')
+        #РґРѕРїРёСЃР°С‚СЊ РјР°СЃСЃРѕРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ Рѕ РІС‹РєР»СЋС‡РµРЅРёРё
+    else:
+        await message.answer('РўР°РєР°СЏ РєРѕРјР°РЅРґР° РјРЅРµ РЅРµ Р·РЅР°РєРѕРјР°!')
 
 
-@dp.message_handler(commands=['addgame'])
-async def start_handler(message: types.Message):
-    await message.answer("Правила мы пишем сами и на это нужно время, а порой - немало :(\n"
-                         "Но если хочешь помочь, то правила можно подготовить по форме ССЫЛКА и отправить их на ПОЧТА, тогда я смогу рассказывать их другим игрокам и тебе!\n"
-                         "Какие-либо предложения по улучшения бота или по оказанию иной помощи можно отправлять туда же, будем рады обратной связи :)")
-
-
-@dp.callback_query_handler()  # обработчик кнопки для списка всех игр
+@dp.callback_query_handler()  # РѕР±СЂР°Р±РѕС‚С‡РёРє РєРЅРѕРїРєРё РґР»СЏ СЃРїРёСЃРєР° РІСЃРµС… РёРіСЂ
 async def answer_to_button(call: types.CallbackQuery):
     global ingame
     global document_with_rules
-    if ingame == False:  # логика, отвечающая за поиск игры в базе, активирует кнопки конкретной игры
+    if ingame == False:  # Р»РѕРіРёРєР°, РѕС‚РІРµС‡Р°СЋС‰Р°СЏ Р·Р° РїРѕРёСЃРє РёРіСЂС‹ РІ Р±Р°Р·Рµ, Р°РєС‚РёРІРёСЂСѓРµС‚ РєРЅРѕРїРєРё РєРѕРЅРєСЂРµС‚РЅРѕР№ РёРіСЂС‹
         request_answer = get_rules(call.data)
         if isinstance(request_answer, str):
             await call.message.answer(request_answer)
         else:
-            document_with_rules = request_answer  # работаем с документом (правилами)
+            document_with_rules = request_answer  # СЂР°Р±РѕС‚Р°РµРј СЃ РґРѕРєСѓРјРµРЅС‚РѕРј (РїСЂР°РІРёР»Р°РјРё)
             newkeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            for row in document_with_rules.tables[0].rows:  # делаем кнопки
+            for row in document_with_rules.tables[0].rows:  # РґРµР»Р°РµРј РєРЅРѕРїРєРё
                 button = types.KeyboardButton(text=row.cells[0].text.strip())
                 newkeyboard.add(button)
             ingame = True
-            bot.send_photo('C:/Users/Squeed/Desktop/LazyRules/speedtest.jpg')
-            await call.message.answer('Вот, смотри! Жми на нужную тебе часть правил в появившейся клавиатуре и всё получится!', reply_markup=newkeyboard)
+            await call.message.answer('Р’РѕС‚, СЃРјРѕС‚СЂРё! Р–РјРё РЅР° РЅСѓР¶РЅСѓСЋ С‚РµР±Рµ С‡Р°СЃС‚СЊ РїСЂР°РІРёР» РІ РїРѕСЏРІРёРІС€РµР№СЃСЏ РєР»Р°РІРёР°С‚СѓСЂРµ Рё РІСЃС‘ РїРѕР»СѓС‡РёС‚СЃСЏ!', reply_markup=newkeyboard)
 
 
 
     #await call.message.answer(call.data)
 
-# Функция реакции на сообщения
+# Р¤СѓРЅРєС†РёСЏ СЂРµР°РєС†РёРё РЅР° СЃРѕРѕР±С‰РµРЅРёСЏ
 @dp.message_handler(content_types=["text"])
 async def answer_to_user(message: types.Message):
     global ingame
     global document_with_rules
-    if ingame == False:  # логика, отвечающая за поиск игры в базе, активирует кнопки конкретной игры
+    if ingame == False:  # Р»РѕРіРёРєР°, РѕС‚РІРµС‡Р°СЋС‰Р°СЏ Р·Р° РїРѕРёСЃРє РёРіСЂС‹ РІ Р±Р°Р·Рµ, Р°РєС‚РёРІРёСЂСѓРµС‚ РєРЅРѕРїРєРё РєРѕРЅРєСЂРµС‚РЅРѕР№ РёРіСЂС‹
         request_answer = get_rules(message.text)
         if isinstance(request_answer, str):
             await message.answer(request_answer)
         else:
-            document_with_rules = request_answer  # работаем с документом (правилами)
+            document_with_rules = request_answer  # СЂР°Р±РѕС‚Р°РµРј СЃ РґРѕРєСѓРјРµРЅС‚РѕРј (РїСЂР°РІРёР»Р°РјРё)
             newkeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            for row in document_with_rules.tables[0].rows:  # делаем кнопки
+            for row in document_with_rules.tables[0].rows:  # РґРµР»Р°РµРј РєРЅРѕРїРєРё
                 button = types.KeyboardButton(text=row.cells[0].text.strip())
                 newkeyboard.add(button)
             ingame = True
-            await message.answer('Вот, смотри\nЧтобы выйти из этого меню нажми кнопку start в меню слева', reply_markup=newkeyboard)
+            await message.answer('Р’РѕС‚, СЃРјРѕС‚СЂРё\nР§С‚РѕР±С‹ РІС‹Р№С‚Рё РёР· СЌС‚РѕРіРѕ РјРµРЅСЋ РЅР°Р¶РјРё РєРЅРѕРїРєСѓ start РІ РјРµРЅСЋ СЃР»РµРІР°', reply_markup=newkeyboard)
 
-# соответствие кнопок вариантам ответов
+# СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРµ РєРЅРѕРїРѕРє РІР°СЂРёР°РЅС‚Р°Рј РѕС‚РІРµС‚РѕРІ
     elif ingame == True:
-        # поставить запрет на печать с клавиатуры хз можно ли
+        # РїРѕСЃС‚Р°РІРёС‚СЊ Р·Р°РїСЂРµС‚ РЅР° РїРµС‡Р°С‚СЊ СЃ РєР»Р°РІРёР°С‚СѓСЂС‹ С…Р· РјРѕР¶РЅРѕ Р»Рё
         button_rule = []
         answer_rule = []
         for i in range(0, len(document_with_rules.tables[0].rows)):
@@ -109,12 +97,12 @@ async def answer_to_user(message: types.Message):
                 pass
 
 
-# функция должна возвращать корректные имена игры + сделать на множеств. число игр и выдачу инлайн предложений
+# С„СѓРЅРєС†РёСЏ РґРѕР»Р¶РЅР° РІРѕР·РІСЂР°С‰Р°С‚СЊ РєРѕСЂСЂРµРєС‚РЅС‹Рµ РёРјРµРЅР° РёРіСЂС‹ + СЃРґРµР»Р°С‚СЊ РЅР° РјРЅРѕР¶РµСЃС‚РІ. С‡РёСЃР»Рѕ РёРіСЂ Рё РІС‹РґР°С‡Сѓ РёРЅР»Р°Р№РЅ РїСЂРµРґР»РѕР¶РµРЅРёР№
 def get_game_name(user_request):
 
     global game_database
-    answer = ('Такой игры я еще не знаю! '
-                '\nЕсли хочешь, то можешь посмотреть в раздел о добавлении игр в меню!')
+    answer = ('РўР°РєРѕР№ РёРіСЂС‹ СЏ РµС‰Рµ РЅРµ Р·РЅР°СЋ! '
+                '\nР•СЃР»Рё С…РѕС‡РµС€СЊ, С‚Рѕ РјРѕР¶РµС€СЊ РїРѕСЃРјРѕС‚СЂРµС‚СЊ РІ СЂР°Р·РґРµР» Рѕ РґРѕР±Р°РІР»РµРЅРёРё РёРіСЂ РІ РјРµРЅСЋ!')
     cor_name = ''
 
     for games in game_database:
@@ -124,14 +112,14 @@ def get_game_name(user_request):
             pass
 
     if cor_name in game_database:
-        answer = f'Есть похожая игра. Её корректное название - {cor_name}'
+        answer = f'Р•СЃС‚СЊ РїРѕС…РѕР¶Р°СЏ РёРіСЂР°. Р•С‘ РєРѕСЂСЂРµРєС‚РЅРѕРµ РЅР°Р·РІР°РЅРёРµ - {cor_name}'
     else:
         pass
 
     return answer
 
 
-# непосредственно выдает текстовый файл с правилами или отправляет искать верное имя
+# РЅРµРїРѕСЃСЂРµРґСЃС‚РІРµРЅРЅРѕ РІС‹РґР°РµС‚ С‚РµРєСЃС‚РѕРІС‹Р№ С„Р°Р№Р» СЃ РїСЂР°РІРёР»Р°РјРё РёР»Рё РѕС‚РїСЂР°РІР»СЏРµС‚ РёСЃРєР°С‚СЊ РІРµСЂРЅРѕРµ РёРјСЏ
 def get_rules(user_request):
     global game_database
     correct_name = ''
@@ -149,8 +137,9 @@ def get_rules(user_request):
         return get_game_name(user_request)
 
 
-# получение базы данных
+# РїРѕР»СѓС‡РµРЅРёРµ Р±Р°Р·С‹ РґР°РЅРЅС‹С…
 def get_database():
+    """РџРѕР»СѓС‡РµРЅРёРµ Р±Р°Р·С‹ РґР°РЅРЅС‹С…"""
     files = os.listdir('C:/Users/Squeed/Desktop/LazyRules/')
     database = []
     for file in files:
